@@ -47,16 +47,27 @@ int main(){
     normal_distribution<double> dist(0.0, 1.0); // Normal distribution
 
     double payoff_sum = 0.0; // Sum of payoffs
+    double payoff_sum_sq = 0.0; // Sum of squared payoffs
 
     for(int i = 0; i < N; ++i){
         double Z = dist(gen);
         double ST = S0 * exp((r - 0.5 * sigma * sigma) * T + sigma * sqrt(T) * Z); // Simulated stock price at maturity
         double payoff = max(ST - K, 0.0); // Payoff of the option
         payoff_sum += payoff; // Accumulate payoffs
+        payoff_sum_sq += payoff * payoff; // Accumulate squared payoffs
     }
 
+
+    double mean_payoff = payoff_sum / N; // Mean payoff
+    double std_dev = sqrt((payoff_sum_sq / N - mean_payoff * mean_payoff) / (N - 1)); // Standard deviation of payoffs
+    double standard_error = std_dev / sqrt(N); // Standard error of the mean
+    double z = 1.96; // Z-score for 95% confidence interval
+    double lower_bound = exp(-r * T) * (mean_payoff - z * standard_error); // Lower bound of confidence interval
+    double upper_bound = exp(-r * T) * (mean_payoff + z * standard_error); // Upper bound of confidence interval
     double option_price = exp(-r * T) * (payoff_sum / N); // Discounted average payoff
     cout << "Option Price: " << option_price << endl; // Output the option price
+    cout << "95% Confidence Interval: [" << lower_bound << ", " << upper_bound << "]" << endl; // Output the confidence interval
+    cout << "Mean Payoff: " << mean_payoff << endl; // Output the mean payoff
     return 0;
 }
 
