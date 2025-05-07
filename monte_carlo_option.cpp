@@ -7,6 +7,7 @@
 #include <cmath>
 #include <random>
 #include <thread>
+#include <cstdlib>
 
 using namespace std;
 
@@ -55,7 +56,13 @@ pair<double, double> read_params(const string& filename){
     return {S0, sigma};
 }
 
-int main(){
+int main(int argc, char* argv[]){
+    if (argc < 2) {
+        cerr << "Usage: ./monte_carlo_option <num_simulations>\n";
+        return 1;
+    }
+
+    int N = atoi(argv[1]);  // Read number of simulations from CLI
     cout << "Monte Carlo Option Pricing\n" << endl;
     pair<double, double> params = read_params("params.txt");
     double S0 = params.first;
@@ -63,7 +70,6 @@ int main(){
     double K = 100.0; // Strike price
     double r = 0.05; // Risk-free interest rate
     double T = 1.0; // Time to maturity in years
-    int N = 1000000; // Number of simulations
 
     int num_threads = 4;
     int chunk_size = N / num_threads; // Size of each chunk
@@ -96,8 +102,7 @@ int main(){
     double upper_bound = exp(-r * T) * (mean_payoff + z * standard_error); // Upper bound of confidence interval
     double discounted_price = exp(-r * T) * (total_payoff_sum / N); // Discounted average payoff
 
-    cout << "Monte Carlo Option Price: " << discounted_price << endl;
-    cout << "95% Confidence Interval: [" << lower_bound << ", " << upper_bound << "]" << endl;
+    cout << N << "," << discounted_price << "," <<  lower_bound << "," << upper_bound << endl; // Output results
     return 0;
 }
 
