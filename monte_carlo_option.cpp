@@ -11,8 +11,34 @@
 
 using namespace std;
 
+double normal_cdf(double x) {
+    return 0.5 * erfc(-x * sqrt(2)); // Cumulative distribution function for standard normal distribution
+}
+
+double black_scholes_call(double S0, double K, double r, double sigma,
+                           double T) {
+    double d1 = (log(S0 / K) + (r + 0.5 * sigma * sigma) * T) / (sigma * sqrt(T)); // d1 term
+    double d2 = d1 - sigma * sqrt(T); // d2 term
+    return S0 * normal_cdf(d1) - K * exp(-r * T) * normal_cdf(d2); // Call option price
+}
+
+enum class OptionType { Call, Put, Digital };
+
+double calculate_payoff(double ST, double K, OptionType type){
+    switch(type){
+        case OptionType::Call:
+            return max(ST - K, 0.0); // Call option payoff
+        case OptionType::Put:
+            return max(K - ST, 0.0); // Put option payoff
+        case OptionType::Digital:
+            return (ST > K) ? 1.0 : 0.0; // Digital option payoff
+        default:
+            return 0.0; // Default case
+    }
+}
+
 void simulate_chunk(int start, int end, double S0, double K, double r,
-                    double sigma, double T, double& payoff_sum, 
+                    double sigma, double T, OptionType type, double& payoff_sum, 
                     double & payoff_sq_sum){
 
     random_device rd; // Random number generator seed
@@ -25,7 +51,7 @@ void simulate_chunk(int start, int end, double S0, double K, double r,
     for (int i = start; i < end; ++i){
         double Z = dist(gen);
         double ST = S0 * exp((r - 0.5 * sigma * sigma) * T + sigma * sqrt(T) * Z); // Simulated stock price at maturity
-        double payoff = max(ST - K, 0.0); // Payoff of the option
+        double payoff = calculate_payoff(ST, K, type); // Payoff of the option
         local_payoff_sum += payoff; // Accumulate payoffs
         local_payoff_sq_sum += payoff * payoff; // Accumulate squared payoffs
     }
@@ -57,6 +83,14 @@ pair<double, double> read_params(const string& filename){
 }
 
 int main(int argc, char* argv[]){
+
+    bool csv_output = false;
+    if (argc >= 3 && string(argv[2]) == "--csv") {
+        csv_output = true;
+    }
+
+    OptionType type = OptionType::Call; // Default option type
+
     if (argc < 2) {
         cerr << "Usage: ./monte_carlo_option <num_simulations>\n";
         return 1;
@@ -81,7 +115,7 @@ int main(int argc, char* argv[]){
     for(int i = 0; i < num_threads; ++i){
         int start = i * chunk_size;
         int end = (i == num_threads - 1) ? N : start + chunk_size; // Handle last chunk
-        threads.emplace_back(simulate_chunk, start, end, S0, K, r, sigma, T,
+        threads.emplace_back(simulate_chunk, start, end, S0, K, r, sigma, T, type,
                              ref(payoff_sums[i]), ref(payoff_sq_sums[i]));
     }
     for(auto& t : threads){
@@ -102,7 +136,19 @@ int main(int argc, char* argv[]){
     double upper_bound = exp(-r * T) * (mean_payoff + z * standard_error); // Upper bound of confidence interval
     double discounted_price = exp(-r * T) * (total_payoff_sum / N); // Discounted average payoff
 
-    cout << N << "," << discounted_price << "," <<  lower_bound << "," << upper_bound << endl; // Output results
+    if (csv_output) {
+        cout << N << "," << discounted_price << "," << lower_bound << "," << upper_bound << endl;
+    } else {
+        if (type == OptionType::Call) {
+            double analytical_call = black_scholes_call(S0, K, r, sigma, T);
+            cout << "Analytical Black-Scholes Call Price: " << analytical_call << endl;
+            cout << "Simulated Call Price (Monte Carlo): " << discounted_price << endl;
+            cout << "Absolute Error: " << abs(discounted_price - analytical_call) << endl;
+        }
+        cout << "Estimated Option Price: " << discounted_price << endl;
+        cout << "95% Confidence Interval: [" << lower_bound << ", " << upper_bound << "]" << endl;
+    }
     return 0;
+    
 }
 

@@ -11,7 +11,7 @@ uppers = []
 
 for N in simulation_sizes:
     # Run the simulation script and capture the output
-    result = subprocess.run(['./monte_carlo_option', str(N)], capture_output=True, text=True)
+    result = subprocess.run(['./monte_carlo_option', str(N), '--csv'], capture_output=True, text=True)
     
     for line in result.stdout.splitlines():
         if "," in line:
